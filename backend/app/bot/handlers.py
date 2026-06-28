@@ -39,14 +39,21 @@ def _money(currency: str, amount) -> str:
 
 WELCOME = (
     "👋 <b>Welcome to FinBuddy!</b>\n\n"
-    "I help you track money in plain language. Just type an expense like:\n"
-    "<code>1000-zomato</code>  or  <code>250 auto</code>\n"
-    "Income works too: <code>+50000 salary</code>\n\n"
-    "Commands:\n"
+    "I'm your money buddy — I help you track <b>spending, savings and "
+    "investments</b>, right here in chat.\n\n"
+    "💸 <b>Log an expense</b> in plain language:\n"
+    "<code>1000-zomato</code>  ·  <code>250 auto</code>\n"
+    "💰 <b>Log income:</b> <code>+50000 salary</code>\n\n"
+    "💎 <b>Grow your wealth.</b> Track your savings (account balances) and your "
+    "investments — stocks, mutual funds, crypto, gold and more — in the "
+    "dashboard, with <b>net worth</b> and a monthly <b>savings rate</b> "
+    "calculated for you.\n\n"
+    "<b>Commands</b>\n"
     "• /dashboard — open your visual dashboard\n"
-    "• /balance — quick monthly snapshot\n"
+    "• /balance — this month's snapshot\n"
+    "• /wealth — savings, investments &amp; net worth\n"
     "• /report — AI summary &amp; savings tips\n"
-    "• /invite — share your space with a partner\n"
+    "• /invite — share a space with your partner\n"
     "• /help — show this message"
 )
 
@@ -161,6 +168,42 @@ async def balance(message: Message) -> None:
         f"\U0001f4c8 Net: {_money(cur, summary['net'])}\n"
         f"\U0001f3e6 Accounts: {_money(cur, summary['accounts_balance'])}\n"
         f"\U0001f4ca Investments: {_money(cur, summary['investments_value'])}"
+    )
+
+
+@router.message(Command("wealth", "networth", "savings", "investments"))
+async def wealth(message: Message) -> None:
+    async with AsyncSessionLocal() as session:
+        tg = message.from_user
+        user = await crud.get_or_create_user(
+            session, telegram_id=tg.id, first_name=tg.first_name or "there"
+        )
+        space = await crud.ensure_personal_space(session, user)
+        summary = await analytics.space_summary(session, space)
+        await session.commit()
+
+    cur = summary["space"].currency
+    savings = float(summary["accounts_balance"] or 0)
+    investments = float(summary["investments_value"] or 0)
+    net_worth = savings + investments
+    income = float(summary["total_income"] or 0)
+    saved = float(summary["net"] or 0)
+    rate = (saved / income * 100) if income > 0 else 0
+
+    saved_line = f"📅 This month you saved {_money(cur, saved)}"
+    if income > 0:
+        saved_line += f" — a {rate:.0f}% savings rate"
+    saved_line += "."
+
+    await message.answer(
+        f"💎 <b>Your wealth</b> — {summary['space'].name}\n\n"
+        f"🏦 Savings (accounts): {_money(cur, savings)}\n"
+        f"📈 Investments: {_money(cur, investments)}\n"
+        f"➖➖➖➖➖\n"
+        f"🪙 <b>Net worth: {_money(cur, net_worth)}</b>\n\n"
+        f"{saved_line}\n\n"
+        "Add or update savings &amp; investments in your dashboard 👇",
+        reply_markup=dashboard_keyboard(),
     )
 
 

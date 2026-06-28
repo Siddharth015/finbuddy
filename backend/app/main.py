@@ -11,7 +11,7 @@ import logging
 from collections.abc import AsyncIterator
 from pathlib import Path
 
-from aiogram.types import Update
+from aiogram.types import BotCommand, Update
 from fastapi import FastAPI, Header, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -26,6 +26,15 @@ logger = logging.getLogger("finbuddy")
 
 _WEBHOOK_PATH = "/telegram/webhook"
 
+_BOT_COMMANDS = [
+    BotCommand(command="dashboard", description="Open your visual dashboard"),
+    BotCommand(command="balance", description="This month's snapshot"),
+    BotCommand(command="wealth", description="Savings, investments & net worth"),
+    BotCommand(command="report", description="AI summary & savings tips"),
+    BotCommand(command="invite", description="Share a space with your partner"),
+    BotCommand(command="help", description="How FinBuddy works"),
+]
+
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -33,11 +42,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     dispatcher = get_dispatcher()
     polling_task: asyncio.Task | None = None
 
+    with contextlib.suppress(Exception):
+        await bot.set_my_commands(_BOT_COMMANDS)
+
     if settings.use_webhook:
         webhook_url = settings.effective_webhook_url + _WEBHOOK_PATH
         await bot.set_webhook(
             webhook_url,
-            secret_token=settings.webhook_secret,
+            secret_token=settings.effective_webhook_secret,
             drop_pending_updates=True,
         )
         logger.info("Webhook registered at %s", webhook_url)
@@ -88,8 +100,8 @@ async def telegram_webhook(
     x_telegram_bot_api_secret_token: str | None = Header(default=None),
 ) -> dict[str, bool]:
     if (
-        settings.webhook_secret
-        and x_telegram_bot_api_secret_token != settings.webhook_secret
+        settings.effective_webhook_secret
+        and x_telegram_bot_api_secret_token != settings.effective_webhook_secret
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Invalid secret token"

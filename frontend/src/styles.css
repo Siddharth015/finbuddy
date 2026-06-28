@@ -1,13 +1,20 @@
 :root {
-  --tg-bg: #0f172a;
+  /* FinBuddy brand */
+  --brand: #10b981;
+  --brand-2: #14b8a6;
+  --brand-3: #059669;
+  --brand-glow: rgba(16, 185, 129, 0.4);
+
+  --tg-bg: #0b1220;
   --tg-text: #f1f5f9;
   --tg-hint: #94a3b8;
-  --tg-card: #1e293b;
-  --tg-accent: #6366f1;
+  --tg-card: #131c2e;
+  --tg-accent: var(--brand);
   --tg-accent-text: #ffffff;
-  --radius: 16px;
+  --radius: 18px;
   --green: #22c55e;
   --red: #ef4444;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.16), 0 8px 24px rgba(0, 0, 0, 0.22);
   --hairline: rgba(255, 255, 255, 0.07);
   --chip: rgba(255, 255, 255, 0.06);
   --chip-strong: rgba(255, 255, 255, 0.1);
@@ -47,17 +54,68 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
-.header h1 {
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.brand svg {
+  border-radius: 12px;
+  box-shadow: 0 6px 16px var(--brand-glow);
+  flex-shrink: 0;
+}
+
+.header h1,
+.brand-name {
   font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   margin: 0;
 }
 
 .header .sub {
   color: var(--tg-hint);
   font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.onboard-hero {
+  text-align: center;
+  padding: 40px 16px 8px;
+}
+
+.onboard-hero svg {
+  border-radius: 20px;
+  box-shadow: 0 12px 30px var(--brand-glow);
+}
+
+.onboard-hero h1 {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 16px 0 6px;
+}
+
+.onboard-hero p {
+  margin: 0 auto;
+  max-width: 280px;
+  font-size: 14px;
+}
+
+.balance-hero .value,
+.hero-pill .v,
+.stat .v,
+.amt,
+.day-total,
+.month-label {
+  font-variant-numeric: tabular-nums;
 }
 
 .space-switch {
@@ -68,6 +126,7 @@ body {
   padding: 8px 14px;
   font-size: 13px;
   font-weight: 600;
+  box-shadow: var(--shadow);
 }
 
 .card {
@@ -75,14 +134,37 @@ body {
   border-radius: var(--radius);
   padding: 16px;
   margin-bottom: 14px;
+  box-shadow: var(--shadow);
 }
 
 .balance-hero {
-  background: linear-gradient(135deg, var(--tg-accent), #8b5cf6);
+  position: relative;
+  background: linear-gradient(135deg, #059669 0%, #10b981 48%, #14b8a6 100%);
   color: #fff;
-  border-radius: 20px;
+  border-radius: 22px;
   padding: 22px;
   margin-bottom: 16px;
+  overflow: hidden;
+  box-shadow: 0 14px 34px var(--brand-glow);
+}
+
+.balance-hero::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  right: -20%;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.22),
+    rgba(255, 255, 255, 0)
+  );
+  pointer-events: none;
+}
+
+.balance-hero > * {
+  position: relative;
 }
 
 .balance-hero .label {
@@ -128,6 +210,7 @@ body {
   background: var(--tg-card);
   border-radius: var(--radius);
   padding: 14px;
+  box-shadow: var(--shadow);
 }
 
 .stat .k {
@@ -160,6 +243,19 @@ body {
 
 .txn:last-child {
   border-bottom: none;
+}
+
+.txn.tappable {
+  cursor: pointer;
+  margin: 0 -8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  border-radius: 12px;
+  transition: background 0.15s ease;
+}
+
+.txn.tappable:active {
+  background: var(--chip);
 }
 
 .txn .icon {
@@ -208,8 +304,8 @@ body {
   font-size: 10px;
   padding: 1px 6px;
   border-radius: 6px;
-  background: rgba(99, 102, 241, 0.2);
-  color: #c7d2fe;
+  background: rgba(16, 185, 129, 0.18);
+  color: #6ee7b7;
   margin-left: 6px;
 }
 
@@ -218,7 +314,9 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  background: var(--tg-card);
+  background: color-mix(in srgb, var(--tg-card) 88%, transparent);
+  -webkit-backdrop-filter: saturate(150%) blur(14px);
+  backdrop-filter: saturate(150%) blur(14px);
   display: flex;
   justify-content: space-around;
   padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
@@ -230,16 +328,20 @@ body {
   border: none;
   color: var(--tg-hint);
   font-size: 11px;
+  font-weight: 600;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 4px 10px;
+  padding: 6px 14px;
+  border-radius: 14px;
   cursor: pointer;
+  transition: color 0.15s, background 0.15s;
 }
 
 .tab.active {
   color: var(--tg-accent);
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
 }
 
 .tab .ico {
@@ -249,28 +351,44 @@ body {
 .fab {
   position: fixed;
   right: 18px;
-  bottom: calc(78px + env(safe-area-inset-bottom));
+  bottom: calc(80px + env(safe-area-inset-bottom));
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: var(--tg-accent);
+  background: linear-gradient(135deg, var(--brand-3), var(--brand-2));
   color: var(--tg-accent-text);
   border: none;
   font-size: 28px;
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.5);
+  line-height: 1;
+  box-shadow: 0 10px 26px var(--brand-glow);
   cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.fab:active {
+  transform: scale(0.92);
 }
 
 button.primary {
   width: 100%;
-  background: var(--tg-accent);
+  background: linear-gradient(135deg, var(--brand-3), var(--brand-2));
   color: var(--tg-accent-text);
   border: none;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 14px;
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 8px 22px var(--brand-glow);
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+
+button.primary:active {
+  transform: scale(0.98);
+}
+
+button.primary:disabled {
+  opacity: 0.6;
 }
 
 button.ghost {

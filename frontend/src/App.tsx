@@ -5,7 +5,8 @@ import { History } from "./components/History";
 import { AddSheet } from "./components/AddSheet";
 import { Insights } from "./components/Insights";
 import { Wealth } from "./components/Wealth";
-import { getInitData, haptic } from "./telegram";
+import { Logo } from "./components/Logo";
+import { getInitData, getUser, haptic } from "./telegram";
 import type { Space } from "./types";
 
 type Tab = "home" | "history" | "insights" | "wealth";
@@ -79,12 +80,20 @@ export default function App() {
 
   const refresh = () => setRefreshKey((k) => k + 1);
 
+  const user = getUser();
+
   return (
     <div className="app">
       <div className="header">
-        <div>
-          <h1>FinBuddy</h1>
-          <div className="sub">{activeSpace.name}</div>
+        <div className="brand">
+          <Logo size={38} />
+          <div>
+            <h1 className="brand-name">FinBuddy</h1>
+            <div className="sub">
+              {user ? `Hi ${user.firstName} · ` : ""}
+              {activeSpace.name}
+            </div>
+          </div>
         </div>
         <button
           className="space-switch"
@@ -183,8 +192,12 @@ function Onboarding({ onReady }: { onReady: () => void }) {
 
   return (
     <div className="app">
-      <div className="header">
-        <h1>Welcome to FinBuddy 👋</h1>
+      <div className="onboard-hero">
+        <Logo size={64} />
+        <h1>Welcome to FinBuddy</h1>
+        <p className="muted">
+          Track spending, savings &amp; investments — together or solo.
+        </p>
       </div>
       <div className="chip-row">
         <button

@@ -1,9 +1,11 @@
 """Application settings loaded from environment / .env."""
 from __future__ import annotations
 
+import re
 from functools import lru_cache
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,18 +25,53 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "postgresql+asyncpg://finbuddy:finbuddy@localhost:5432/finbuddy"
+    # Set by the validator below: whether the DB connection needs TLS. Managed
+    # providers (Neon, Supabase, Aiven, ...) require it; local Postgres does not.
+    db_ssl_required: bool = False
 
-    @field_validator("database_url", mode="after")
-    @classmethod
-    def _force_asyncpg_driver(cls, value: str) -> str:
-        """Normalise managed-Postgres URLs (``postgres://`` / ``postgresql://``)
-        to the async driver SQLAlchemy needs. PaaS providers such as Render and
-        Railway hand out plain ``postgres://...`` strings."""
-        if value.startswith("postgres://"):
-            value = "postgresql://" + value[len("postgres://") :]
-        if value.startswith("postgresql://"):
-            value = "postgresql+asyncpg://" + value[len("postgresql://") :]
-        return value
+    @model_validator(mode="after")
+    def _normalise_database_url(self) -> "Settings":
+        """Make any Postgres URL work with asyncpg.
+
+        - Upgrades ``postgres://`` / ``postgresql://`` to the asyncpg driver
+          (Render, Railway, Neon, Supabase all hand out bare ``postgres://``).
+        - Strips libpq-only query params (``sslmode``, ``channel_binding``) that
+          asyncpg rejects, and records whether TLS is needed so the engine can
+          enable it via ``connect_args`` instead.
+        """
+        url = self.database_url
+        if url.startswith("postgres://"):
+            url = "postgresql://" + url[len("postgres://") :]
+        if url.startswith("postgresql://"):
+            url = "postgresql+asyncpg://" + url[len("postgresql://") :]
+
+        parts = urlsplit(url)
+        query = dict(parse_qsl(parts.query))
+        sslmode = query.pop("sslmode", None)
+        query.pop("channel_binding", None)  # asyncpg does not understand this
+        self.database_url = urlunsplit(
+            (parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment)
+        )
+
+        host = (parts.hostname or "").lower()
+        if sslmode is not None:
+            self.db_ssl_required = sslmode != "disable"
+        else:
+            is_local = host in {"localhost", "127.0.0.1", "::1", ""}
+            # Private platform networks (Render internal, Fly .internal) speak
+            # plaintext; only public managed hosts need TLS.
+            is_internal = (
+                "." not in host
+                or host.endswith(".internal")
+                or host.endswith(".flycast")
+            )
+            self.db_ssl_required = not (is_local or is_internal)
+        return self
+
+    @property
+    def db_connect_args(self) -> dict[str, object]:
+        """Extra kwargs for the asyncpg engine (TLS when the provider needs it)."""
+        return {"ssl": True} if self.db_ssl_required else {}
 
     # AI
     ai_provider: str = "groq"
@@ -64,6 +101,14 @@ class Settings(BaseSettings):
     def effective_miniapp_url(self) -> str:
         """Explicit ``MINIAPP_URL`` wins; otherwise serve the Mini App on this origin."""
         return (self.miniapp_url or self.public_url).rstrip("/")
+
+    @property
+    def effective_webhook_secret(self) -> str:
+        """Telegram's webhook secret token only permits ``A-Z a-z 0-9 _ -``.
+        Strip anything else (Render's ``generateValue`` can emit base64 chars)
+        so the value is always accepted by ``setWebhook``."""
+        cleaned = re.sub(r"[^A-Za-z0-9_-]", "", self.webhook_secret)[:256]
+        return cleaned or "finbuddy"
 
     @property
     def use_webhook(self) -> bool:

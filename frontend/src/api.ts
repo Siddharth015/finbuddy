@@ -93,6 +93,16 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  updateAccount: (
+    spaceId: number,
+    accountId: number,
+    payload: Record<string, unknown>,
+  ) =>
+    request<Account>(`/api/spaces/${spaceId}/accounts/${accountId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+
   deleteAccount: (spaceId: number, accountId: number) =>
     request<void>(`/api/spaces/${spaceId}/accounts/${accountId}`, {
       method: "DELETE",
@@ -104,6 +114,16 @@ export const api = {
   addInvestment: (spaceId: number, payload: Record<string, unknown>) =>
     request<Investment>(`/api/spaces/${spaceId}/investments`, {
       method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  updateInvestment: (
+    spaceId: number,
+    investmentId: number,
+    payload: Record<string, unknown>,
+  ) =>
+    request<Investment>(`/api/spaces/${spaceId}/investments/${investmentId}`, {
+      method: "PATCH",
       body: JSON.stringify(payload),
     }),
 

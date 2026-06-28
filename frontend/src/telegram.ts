@@ -26,6 +26,12 @@ export function getInitData(): string {
   return tg?.initData || import.meta.env.VITE_DEV_INIT_DATA || "";
 }
 
+export function getUser(): { firstName: string } | null {
+  const u = tg?.initDataUnsafe?.user;
+  if (u?.first_name) return { firstName: u.first_name };
+  return null;
+}
+
 export function haptic(
   type: "success" | "error" | "warning" | "light" | "medium" | "heavy" | "select" = "light",
 ): void {
@@ -54,8 +60,6 @@ function applyTheme(): void {
     "--tg-text": p.text_color,
     "--tg-hint": p.hint_color,
     "--tg-card": p.secondary_bg_color,
-    "--tg-accent": p.button_color,
-    "--tg-accent-text": p.button_text_color,
   };
   for (const [key, value] of Object.entries(map)) {
     if (value) root.style.setProperty(key, value);

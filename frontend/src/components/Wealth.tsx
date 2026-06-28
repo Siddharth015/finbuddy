@@ -19,6 +19,11 @@ const INVESTMENT_TYPES = [
   "other",
 ];
 
+type SheetState =
+  | { kind: "account"; item?: Account }
+  | { kind: "investment"; item?: Investment }
+  | null;
+
 export function Wealth({ space }: { space: Space }) {
   const toast = useToast();
   const { data, loading, error, reload } = useAsync<[Account[], Investment[]]>(
@@ -27,7 +32,7 @@ export function Wealth({ space }: { space: Space }) {
   );
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [investments, setInvestments] = useState<Investment[]>([]);
-  const [adding, setAdding] = useState<"account" | "investment" | null>(null);
+  const [sheet, setSheet] = useState<SheetState>(null);
 
   useEffect(() => {
     if (data) {
@@ -99,7 +104,14 @@ export function Wealth({ space }: { space: Space }) {
           />
         ) : (
           accounts.map((a) => (
-            <div className="txn" key={a.id}>
+            <div
+              className="txn tappable"
+              key={a.id}
+              onClick={() => {
+                haptic("light");
+                setSheet({ kind: "account", item: a });
+              }}
+            >
               <div className="icon">🏦</div>
               <div className="meta">
                 <div className="t">{a.name}</div>
@@ -108,7 +120,10 @@ export function Wealth({ space }: { space: Space }) {
               <div className="amt">{money(a.balance, cur)}</div>
               <button
                 className="delete-x"
-                onClick={() => removeAccount(a)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeAccount(a);
+                }}
                 aria-label="Remove account"
               >
                 ✕
@@ -121,7 +136,7 @@ export function Wealth({ space }: { space: Space }) {
           style={{ marginTop: 10 }}
           onClick={() => {
             haptic("light");
-            setAdding("account");
+            setSheet({ kind: "account" });
           }}
         >
           + Add account
@@ -161,7 +176,14 @@ export function Wealth({ space }: { space: Space }) {
           investments.map((i) => {
             const gain = Number(i.current_value) - Number(i.invested);
             return (
-              <div className="txn" key={i.id}>
+              <div
+                className="txn tappable"
+                key={i.id}
+                onClick={() => {
+                  haptic("light");
+                  setSheet({ kind: "investment", item: i });
+                }}
+              >
                 <div className="icon">📈</div>
                 <div className="meta">
                   <div className="t">{i.name}</div>
@@ -183,7 +205,10 @@ export function Wealth({ space }: { space: Space }) {
                 </div>
                 <button
                   className="delete-x"
-                  onClick={() => removeInvestment(i)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeInvestment(i);
+                  }}
                   aria-label="Remove holding"
                 >
                   ✕
@@ -197,29 +222,31 @@ export function Wealth({ space }: { space: Space }) {
           style={{ marginTop: 10 }}
           onClick={() => {
             haptic("light");
-            setAdding("investment");
+            setSheet({ kind: "investment" });
           }}
         >
           + Add investment
         </button>
       </div>
 
-      {adding === "account" && (
-        <AddAccountSheet
+      {sheet?.kind === "account" && (
+        <AccountSheet
           space={space}
-          onClose={() => setAdding(null)}
-          onAdded={() => {
-            setAdding(null);
+          existing={sheet.item}
+          onClose={() => setSheet(null)}
+          onSaved={() => {
+            setSheet(null);
             reload();
           }}
         />
       )}
-      {adding === "investment" && (
-        <AddInvestmentSheet
+      {sheet?.kind === "investment" && (
+        <InvestmentSheet
           space={space}
-          onClose={() => setAdding(null)}
-          onAdded={() => {
-            setAdding(null);
+          existing={sheet.item}
+          onClose={() => setSheet(null)}
+          onSaved={() => {
+            setSheet(null);
             reload();
           }}
         />
@@ -228,18 +255,20 @@ export function Wealth({ space }: { space: Space }) {
   );
 }
 
-function AddAccountSheet({
+function AccountSheet({
   space,
+  existing,
   onClose,
-  onAdded,
+  onSaved,
 }: {
   space: Space;
+  existing?: Account;
   onClose: () => void;
-  onAdded: () => void;
+  onSaved: () => void;
 }) {
-  const [name, setName] = useState("");
-  const [type, setType] = useState("bank");
-  const [balance, setBalance] = useState("0");
+  const [name, setName] = useState(existing?.name ?? "");
+  const [type, setType] = useState<string>(existing?.type ?? "bank");
+  const [balance, setBalance] = useState(existing?.balance ?? "0");
   const [busy, setBusy] = useState(false);
   useBackButton(onClose);
 
@@ -247,14 +276,22 @@ function AddAccountSheet({
     if (!name.trim()) return;
     setBusy(true);
     try {
-      await api.addAccount(space.id, {
-        name: name.trim(),
-        type,
-        balance,
-        currency: space.currency,
-      });
+      if (existing) {
+        await api.updateAccount(space.id, existing.id, {
+          name: name.trim(),
+          type,
+          balance,
+        });
+      } else {
+        await api.addAccount(space.id, {
+          name: name.trim(),
+          type,
+          balance,
+          currency: space.currency,
+        });
+      }
       haptic("success");
-      onAdded();
+      onSaved();
     } finally {
       setBusy(false);
     }
@@ -263,7 +300,7 @@ function AddAccountSheet({
   return (
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
-        <h2>Add account</h2>
+        <h2>{existing ? "Edit account" : "Add account"}</h2>
         <label className="field">Name</label>
         <input
           autoFocus
@@ -293,27 +330,29 @@ function AddAccountSheet({
           </div>
         </div>
         <button className="primary" onClick={submit} disabled={busy}>
-          {busy ? "Saving…" : "Save"}
+          {busy ? "Saving…" : existing ? "Save changes" : "Save"}
         </button>
       </div>
     </div>
   );
 }
 
-function AddInvestmentSheet({
+function InvestmentSheet({
   space,
+  existing,
   onClose,
-  onAdded,
+  onSaved,
 }: {
   space: Space;
+  existing?: Investment;
   onClose: () => void;
-  onAdded: () => void;
+  onSaved: () => void;
 }) {
-  const [name, setName] = useState("");
-  const [type, setType] = useState("equity");
-  const [units, setUnits] = useState("0");
-  const [avg, setAvg] = useState("0");
-  const [current, setCurrent] = useState("0");
+  const [name, setName] = useState(existing?.name ?? "");
+  const [type, setType] = useState<string>(existing?.type ?? "equity");
+  const [units, setUnits] = useState(existing?.units ?? "0");
+  const [avg, setAvg] = useState(existing?.avg_buy_price ?? "0");
+  const [current, setCurrent] = useState(existing?.current_price ?? "0");
   const [busy, setBusy] = useState(false);
   useBackButton(onClose);
 
@@ -321,16 +360,25 @@ function AddInvestmentSheet({
     if (!name.trim()) return;
     setBusy(true);
     try {
-      await api.addInvestment(space.id, {
-        name: name.trim(),
-        type,
-        units,
-        avg_buy_price: avg,
-        current_price: current,
-        currency: space.currency,
-      });
+      if (existing) {
+        await api.updateInvestment(space.id, existing.id, {
+          name: name.trim(),
+          units,
+          avg_buy_price: avg,
+          current_price: current,
+        });
+      } else {
+        await api.addInvestment(space.id, {
+          name: name.trim(),
+          type,
+          units,
+          avg_buy_price: avg,
+          current_price: current,
+          currency: space.currency,
+        });
+      }
       haptic("success");
-      onAdded();
+      onSaved();
     } finally {
       setBusy(false);
     }
@@ -339,7 +387,7 @@ function AddInvestmentSheet({
   return (
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
-        <h2>Add investment</h2>
+        <h2>{existing ? "Edit investment" : "Add investment"}</h2>
         <label className="field">Name</label>
         <input
           autoFocus
@@ -348,7 +396,11 @@ function AddInvestmentSheet({
           onChange={(e) => setName(e.target.value)}
         />
         <label className="field">Type</label>
-        <select value={type} onChange={(e) => setType(e.target.value)}>
+        <select
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+          disabled={!!existing}
+        >
           {INVESTMENT_TYPES.map((t) => (
             <option key={t} value={t}>
               {t.replace("_", " ")}
@@ -385,7 +437,7 @@ function AddInvestmentSheet({
           </div>
         </div>
         <button className="primary" onClick={submit} disabled={busy}>
-          {busy ? "Saving…" : "Save"}
+          {busy ? "Saving…" : existing ? "Save changes" : "Save"}
         </button>
       </div>
     </div>
