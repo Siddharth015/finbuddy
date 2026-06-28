@@ -1,0 +1,40 @@
+# Render Blueprint — provisions FinBuddy (API + bot + Mini App).
+#
+# The database is an EXTERNAL free Neon Postgres (https://neon.tech) so it never
+# expires and needs zero maintenance. Create a Neon project, copy its connection
+# string, and paste it as DATABASE_URL in the Render dashboard (it is marked
+# sync:false so it is never stored in git). The app auto-handles Neon's SSL.
+#
+# Deploy: push this repo to GitHub, then in Render choose "New +" -> "Blueprint"
+# and point it at the repo. Set BOT_TOKEN, GROQ_API_KEY and DATABASE_URL when
+# prompted. The public URL is read from RENDER_EXTERNAL_URL automatically to
+# register the webhook and the "Open Dashboard" button.
+
+services:
+  - type: web
+    name: finbuddy
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Neon (or any managed) Postgres URL — paste in the Render dashboard.
+      - key: DATABASE_URL
+        sync: false
+      # Random shared secret Telegram echoes back on every webhook call.
+      - key: WEBHOOK_SECRET
+        generateValue: true
+      # Secrets — entered in the Render dashboard, never committed.
+      - key: BOT_TOKEN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: AI_PROVIDER
+        value: groq
+      - key: AI_MODEL
+        value: llama-3.3-70b-versatile
+      - key: DEFAULT_CURRENCY
+        value: INR
+

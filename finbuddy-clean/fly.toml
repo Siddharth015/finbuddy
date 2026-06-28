@@ -1,0 +1,39 @@
+# Fly.io config — deploys FinBuddy straight from this folder (no GitHub needed).
+# Build it remotely with:  fly deploy
+#
+# One-time setup is in the deploy steps; the app name below must be globally
+# unique on Fly. If "finbuddy" is taken, change it here AND in PUBLIC_URL.
+
+app = "finbuddy"
+primary_region = "sin"   # Singapore — low latency to India. Change if you like.
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  # The app listens on this port; it must equal http_service.internal_port.
+  PORT = "8080"
+  # Fly serves the app at https://<app>.fly.dev. The backend uses this to
+  # register the Telegram webhook and the "Open Dashboard" button automatically.
+  PUBLIC_URL = "https://finbuddy.fly.dev"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Keep one machine always running so the webhook is reachable and the bot
+  # stays registered (set auto_stop_machines = true to save money if you prefer
+  # cold starts — Telegram retries will still wake it).
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

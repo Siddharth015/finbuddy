@@ -1,0 +1,49 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: finbuddy-db
+    environment:
+      POSTGRES_USER: finbuddy
+      POSTGRES_PASSWORD: finbuddy
+      POSTGRES_DB: finbuddy
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finbuddy"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: finbuddy-backend
+    env_file: ./backend/.env
+    environment:
+      # Override the DB host to the compose service name.
+      DATABASE_URL: postgresql+asyncpg://finbuddy:finbuddy@db:5432/finbuddy
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # The browser must reach the backend at this URL. For local testing
+        # against the compose backend, http://localhost:8000 works.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+    container_name: finbuddy-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres-data:
