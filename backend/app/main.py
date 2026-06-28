@@ -65,9 +65,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             polling_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await polling_task
-        if settings.use_webhook:
-            with contextlib.suppress(Exception):
-                await bot.delete_webhook()
+        # Keep the webhook registered across restarts/sleeps: on free PaaS
+        # tiers an incoming Telegram update is what wakes the service, so the
+        # webhook must survive shutdown. (Only long-polling needs teardown.)
         await bot.session.close()
 
 
